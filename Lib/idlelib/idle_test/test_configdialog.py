@@ -6,7 +6,7 @@ Coverage: 46% just by creating dialog, 56% with current tests.
 from idlelib.configdialog import ConfigDialog, idleConf  # test import
 from test.support import requires
 requires('gui')
-from tkinter import Tk
+import tkinter as tk
 import unittest
 import idlelib.config as config
 
@@ -37,7 +37,7 @@ class TestDialog(ConfigDialog):
 def setUpModule():
     global root, configure
     idleConf.userCfg = testcfg
-    root = Tk()
+    root = tk.Tk()
     root.withdraw()
     configure = TestDialog(root, 'Test', _utest=True)
 
@@ -102,6 +102,53 @@ class KeysTest(unittest.TestCase):
 
     def setUp(self):
         changes.clear()
+
+    def test_load_keys_list(self):
+        """load_keys_list should load specific keyset"""
+        configure.load_keys_list('')
+        current_list = configure.list_bindings.get(0, tk.END)
+        configure.load_keys_list('IDLE Classic Windows')
+        changed_list = configure.list_bindings.get(0, tk.END)
+        self.assertNotEqual(current_list, changed_list)
+
+    def test_load_keys_list_with_selection(self):
+        """load_keys_list should restore the selection index after load"""
+        index = 5
+        configure.load_keys_list('')
+        current_list = configure.list_bindings.get(0, tk.END)
+        configure.list_bindings.select_set(index)
+        configure.list_bindings.select_anchor(index)
+        self.assertTrue(configure.list_bindings.selection_includes(index))
+
+        configure.load_keys_list('IDLE Classic Windows')
+        changed_list = configure.list_bindings.get(0, tk.END)
+        self.assertNotEqual(current_list, changed_list)
+        self.assertEqual(configure.list_bindings.index(tk.ANCHOR), index)
+        self.assertTrue(configure.list_bindings.selection_includes(index))
+
+    def test_changed_key_binding(self):
+        keyset_name = 'monty'
+        index = 0
+        event = configure.list_bindings.get(index).split(' - ')[0]
+        binding = '<Control-Alt-Shift-Key-U>'
+        configure.create_new_key_set(keyset_name)
+        configure.list_bindings.select_set(index)
+        configure.list_bindings.select_anchor(index)
+
+        configure.keybinding.set(binding)
+        self.assertEqual(changes[-1],
+                         ('keys', 'monty', event, binding))
+
+    def test_create_new_keyset(self):
+        """Test create_new_key_set will create a new keyset"""
+        keyset_name = 'obov'
+        configure.load_keys_list('')
+        self.assertNotEqual(configure.custom_keys.get(), keyset_name)
+
+        configure.create_new_key_set(keyset_name)
+        configure.load_keys_list('obov')
+        self.assertFalse(configure.are_keys_builtin.get())
+        self.assertEqual(configure.custom_keys.get(), keyset_name)
 
 
 class GeneralTest(unittest.TestCase):
